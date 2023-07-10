@@ -238,40 +238,40 @@ random_m_srand(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_ary_shuffle_bang(mrb_state *mrb, mrb_value ary)
 {
-  mrb_int i;
-  mrb_value max;
-  mrb_value r = mrb_nil_value();
-  rand_state *random;
+  mrb_int i, max;
+  max = RARRAY_LEN(ary);
+  if (max > 1) {
+    mrb_value r = mrb_nil_value();
+    rand_state *random;
 
- /*
- * MSC compiler bug generating invalid instructions with optimization
- * enabled. MSC errantly uses a hardcoded value with optimizations on
- * when using a fixed value from a union.
- * Creating a temp volatile variable and reassigning back to the original
- * value tricks the compiler to not perform this optimization;
- */
-#if defined _MSC_VER && _MSC_VER >= 1923
-  /* C++ will not cast away volatile easily, so we cannot do something like
-   * volatile mrb_value rr = r; r = (mrb_value)rr; with C++.
-   * That cast does work with C.
-   * We also have to trick the compiler to not optimize away the const_cast entirely
-   * by creating and manipulating an intermediate volatile pointer.
+   /*
+   * MSC compiler bug generating invalid instructions with optimization
+   * enabled. MSC errantly uses a hardcoded value with optimizations on
+   * when using a fixed value from a union.
+   * Creating a temp volatile variable and reassigning back to the original
+   * value tricks the compiler to not perform this optimization;
    */
-  volatile mrb_value *v_r;
-  volatile mrb_int ii;
-  mrb_value *p_r;
-  v_r = &r;
-  ii = 2;
-  v_r = v_r + 2;
+#if defined _MSC_VER && _MSC_VER >= 1923
+    /* C++ will not cast away volatile easily, so we cannot do something like
+     * volatile mrb_value rr = r; r = (mrb_value)rr; with C++.
+     * That cast does work with C.
+     * We also have to trick the compiler to not optimize away the const_cast entirely
+     * by creating and manipulating an intermediate volatile pointer.
+     */
+    volatile mrb_value *v_r;
+    volatile mrb_int ii;
+    mrb_value *p_r;
+    v_r = &r;
+    ii = 2;
+    v_r = v_r + 2;
 #if defined __cplusplus
-  p_r = const_cast<mrb_value*>(v_r - ii);
+    p_r = const_cast<mrb_value*>(v_r - ii);
 #else
-  p_r = (mrb_value*)v_r - ii;
+    p_r = (mrb_value*)v_r - ii;
 #endif
-  r = *p_r;
+    r = *p_r;
 #endif
 
-  if (RARRAY_LEN(ary) > 1) {
     mrb_get_args(mrb, "|o", &r);
 
     if (mrb_nil_p(r)) {
@@ -282,13 +282,12 @@ mrb_ary_shuffle_bang(mrb_state *mrb, mrb_value ary)
       random = random_ptr(r);
     }
     mrb_ary_modify(mrb, mrb_ary_ptr(ary));
-    max = mrb_fixnum_value(RARRAY_LEN(ary));
-    for (i = RARRAY_LEN(ary) - 1; i > 0; i--)  {
+    for (i = max - 1; i > 0; i--)  {
       mrb_int j;
       mrb_value *ptr = RARRAY_PTR(ary);
       mrb_value tmp;
 
-      j = mrb_integer(random_rand(mrb, random, max));
+      j = mrb_integer(random_rand(mrb, random, mrb_fixnum_value(i + 1)));
 
       tmp = ptr[i];
       ptr[i] = ptr[j];
